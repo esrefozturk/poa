@@ -1,7 +1,9 @@
+import datetime as date
+
 from blockchain import blockchain
 from node import node
-import datetime as date
 from transaction import this_nodes_transactions
+
 miner_address = "q3nf394hjg-random-miner-address-34nf3i4nflkn3oi"
 import json
 from block import Block

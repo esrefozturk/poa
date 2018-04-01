@@ -16,6 +16,13 @@ Including another URLconf
 from django.conf.urls import url
 from django.contrib import admin
 
+from poa import views
+
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
+    url(r'^block_count/', views.BlockCountHandler.as_view()),
+    url(r'^blocks/(?P<hash>\w+)/', views.BlockHandler.as_view()),
+    url(r'^transactions/(?P<hash>\w+)/', views.TransactionHandler.as_view()),
+    url(r'^new_transaction/', views.WaitingTransactionHandler.as_view()),
+    url(r'^consensus/', views.ConsensusHandler.as_view()),
 ]

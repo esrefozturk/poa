@@ -1,5 +1,7 @@
-from node import node
 from flask import request
+
+from node import node
+
 # Store the transactions that
 # this node has in a list
 this_nodes_transactions = []
