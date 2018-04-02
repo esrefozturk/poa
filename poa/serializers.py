@@ -1,18 +1,18 @@
 from rest_framework import serializers
 
-from models import WaitingTransaction, Block, Transaction, NewBlock
+from models import WaitingTransaction, Block, Transaction
 
 
 class WaitingTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = WaitingTransaction
-        fields = ('sender', 'receiver', 'amount')
+        fields = ('sender', 'receiver', 'amount', 'timestamp')
 
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
-        fields = ('sender', 'receiver', 'amount', 'hash')
+        fields = ('sender', 'receiver', 'amount', 'hash', 'timestamp')
 
 
 class BlockSerializer(serializers.ModelSerializer):
@@ -26,9 +26,3 @@ class BlockSerializer(serializers.ModelSerializer):
         return [
             TransactionSerializer(i).data for i in block.transactions.all()
         ]
-
-
-class NewBlockSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = NewBlock
-        fields = ('index', 'timestamp', 'sign', 'hash', 'previous_hash', 'payload', 'miner')

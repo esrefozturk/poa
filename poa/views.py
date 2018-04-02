@@ -1,10 +1,12 @@
+import threading
+
 from rest_framework import exceptions
 from rest_framework.generics import CreateAPIView, ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from models import Block, Transaction
-from serializers import WaitingTransactionSerializer, BlockSerializer, NewBlockSerializer, TransactionSerializer
+from serializers import WaitingTransactionSerializer, BlockSerializer, TransactionSerializer
 from utils import get_block_count
 
 
@@ -42,8 +44,12 @@ class WaitingTransactionHandler(CreateAPIView):
     serializer_class = WaitingTransactionSerializer
 
 
-class ConsensusHandler(CreateAPIView):
-    serializer_class = NewBlockSerializer
+class ConsensusHandler(APIView):
+    def post(self, request, *args, **kwargs):
+        from utils import check_newblock
+        t = threading.Thread(target=check_newblock, args=(request.data,))
+        t.start()
+        return Response()
 
 
 class BlockCountHandler(APIView):

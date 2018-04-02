@@ -1,10 +1,11 @@
+from datetime import datetime
 from json import loads
 
 import requests
 
-from poa.models import Block, Transaction, WaitingTransaction, NewBlock
+from poa.models import Block, Transaction, WaitingTransaction
 from serializers import BlockSerializer
-from settings import PUB, PEERS
+from settings import MINERS
 
 LIMIT = 1
 
@@ -30,35 +31,47 @@ def find_previous_block(newblock):
             return n
 
 
-def create_newblock(newblock):
+def create_newblock(block_data):
+    print block_data
     try:
-        block = Block.objects.get(hash=newblock.previous_hash)
+        block = Block.objects.get(hash=block_data['previous_hash'])
     except:
+        return
         # TODO: check if not exists
-        previous_newblock = find_previous_block(newblock)
-        check_newblock(previous_newblock)
+        # previous_newblock = find_previous_block(newblock)
+        # check_newblock(previous_newblock)
 
     # TODO: make sign check
-
-    Block(
-        index=newblock.index,
-        payload=newblock.payload,
-        sign=newblock.sign,
-        previous_hash=newblock.previos_hash,
-        hash=newblock.hash,
-        miner=newblock.miner
-    ).save()
-    newblock.delete()
+    # TODO: create transactions
 
 
-def check_newblock(newblock):
+    block = Block(
+        index=block_data['index'],
+        payload=block_data['payload'],
+        previous_hash=block_data['previous_hash'],
+        timestamp=block_data['timestamp'],
+        miner=block_data['miner'],
+        hash=block_data['hash'],
+        sign=block_data['sign'],
+    )
+    block.save()
+
+    for transaction_data in block_data['transactions']:
+        transaction = Transaction(
+            timestamp=transaction_data['timestamp'],
+            sender=transaction_data['sender'],
+            receiver=transaction_data['receiver'],
+            amount=transaction_data['amount']
+        )
+        transaction.save()
+
+
+def check_newblock(block_data):
     try:
-        Block.objects.get(hash=newblock.hash)
+        Block.objects.get(hash=block_data['hash'])
     except:
-        create_newblock(newblock)
+        create_newblock(block_data)
         return
-    newblock.delete()
-    return
 
 
 def calc_current_coin(sender, current_block):
@@ -83,7 +96,7 @@ def check_waitingtransaction():
 
 
 def broadcast_new_block(block):
-    for peer in PEERS:
+    for peer in MINERS:
         requests.post(peer + 'consensus/', data=BlockSerializer(block).data)
 
 
@@ -92,14 +105,14 @@ def mine(waitingtransactions):
     block = Block(
         index=current_block.index + 1,
         previous_hash=current_block.hash,
-        miner=PUB,
-        payload='I Mine Like I Hash'
+        payload='I Mine Like I Hash',
+        timestamp=datetime.now()
     )
-    block.sign = '1234'  # sign( block.hash , PRI , 'SHA-256' ).encode('hex')
     block.save()
 
     for i in waitingtransactions:
         Transaction(
+            timestamp=i.timestamp,
             sender=i.sender,
             receiver=i.receiver,
             amount=i.amount,
