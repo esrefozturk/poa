@@ -6,13 +6,13 @@ from models import WaitingTransaction, Block, Transaction
 class WaitingTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = WaitingTransaction
-        fields = ('sender', 'receiver', 'amount', 'timestamp')
+        fields = ('sender', 'receiver', 'amount', 'timestamp', 'sign', 'hash')
 
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
-        fields = ('sender', 'receiver', 'amount', 'hash', 'timestamp')
+        fields = ('sender', 'receiver', 'amount', 'hash', 'timestamp', 'sign')
 
 
 class BlockSerializer(serializers.ModelSerializer):

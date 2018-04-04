@@ -2,14 +2,14 @@ import hashlib as hasher
 import threading
 
 from django.db import models
-from rsa import sign, PrivateKey
+from rsa import sign, PrivateKey, verify, PublicKey
 
 from settings import PUB
 
 
 class Block(models.Model):
     index = models.IntegerField(default=0)
-    timestamp = models.DateTimeField()
+    timestamp = models.FloatField()
     payload = models.CharField(max_length=1024, default='')
     sign = models.CharField(max_length=2048, default='')
     previous_hash = models.CharField(max_length=1024)
@@ -23,31 +23,28 @@ class Block(models.Model):
             h=self.hash
         )
 
-    def save(self, **kwargs):
-        if not self.hash:
-            self.miner = PUB
+    def mine(self):
+        self.miner = PUB
+        sha = hasher.sha256()
+        sha.update(str(self.index) +
+                   str(self.timestamp) +
+                   str(self.payload) +
+                   str(self.previous_hash))
+        self.hash = sha.hexdigest()
 
-            sha = hasher.sha256()
-            sha.update(str(self.index) +
-                       str(self.timestamp) +
-                       str(self.payload) +
-                       str(self.previous_hash))
-            self.hash = sha.hexdigest()
+        with open('rsa.pri', 'r') as f:
+            privatekey = PrivateKey.load_pkcs1(f.read())
 
-            with open('rsa.pri', 'r') as f:
-                privatekey = PrivateKey.load_pkcs1(f.read())
-
-            self.sign = sign(self.hash, privatekey, 'SHA-256').encode('hex')
-
-        super(Block, self).save(**kwargs)
+        self.sign = sign(self.hash, privatekey, 'SHA-256').encode('hex')
 
 
 class BaseTransaction(models.Model):
-    timestamp = models.DateTimeField()
+    timestamp = models.FloatField()
     sender = models.CharField(max_length=1024)
     receiver = models.CharField(max_length=1024)
     amount = models.PositiveIntegerField()
-    hash = models.CharField(max_length=1024, default='')
+    hash = models.CharField(max_length=1024)
+    sign = models.CharField(max_length=1024)
 
     def __unicode__(self):
         return '{s} {r} {a}'.format(
@@ -61,29 +58,42 @@ class BaseTransaction(models.Model):
 class Transaction(BaseTransaction):
     block = models.ForeignKey(Block, on_delete=models.CASCADE, related_name='transactions')
 
-    def save(self, **kwargs):
-        sha = hasher.sha256()
-        sha.update(
-            str(self.sender) +
-            str(self.receiver) +
-            str(self.amount) +
-            str(self.timestamp) +
-            str(self.block.hash)
-        )
-        self.hash = sha.hexdigest()
-        super(Transaction, self).save(**kwargs)
-
 
 class WaitingTransaction(BaseTransaction):
     pass
 
     def validate(self):
         from utils import calc_current_coin
+
+        sha = hasher.sha256()
+        sha.update(
+            str(self.sender) +
+            str(self.receiver) +
+            str(self.amount) +
+            str(self.timestamp)
+        )
+        hash = sha.hexdigest()
+
+        if self.hash != hash:
+            return False
+
+        PUB = PublicKey.load_pkcs1(
+            '''
+            -----BEGIN RSA PUBLIC KEY-----
+            {p}
+            -----END RSA PUBLIC KEY-----
+            '''.format(p='\n'.join([self.sender[i:i + 64] for i in range(0, len(self.sender), 64)]))
+        )
+
+        if not verify(hash, self.sign.decode('hex'), PUB):
+            return False
+
         current_block = Block.objects.all().order_by('-index')[0]
         coin = calc_current_coin(self.sender, current_block)
 
         if self.amount > coin:
             return False
+
         return True
 
     def save(self, **kwargs):

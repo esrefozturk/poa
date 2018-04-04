@@ -1,50 +1,49 @@
-from datetime import datetime
-from json import loads
+import hashlib as hasher
+from time import time
 
 import requests
+from rsa import verify, PublicKey
 
 from poa.models import Block, Transaction, WaitingTransaction
 from serializers import BlockSerializer
 from settings import MINERS
 
 LIMIT = 1
+from settings import MINER_REWARD, IP
 
 
 def get_block_count():
     return Block.objects.all().order_by('-index')[0].index + 1
 
 
-def find_previous_block(newblock):
-    for peer in PEERS:
-        r = requests.get(peer + 'blocks/' + newblock.previous_hash)
-        if r.status_code == 200:
-            data = loads(r.json())
-            n = NewBlock(
-                index=data['index'],
-                payload=data['payload'],
-                sign=data['sign'],
-                previous_hash=data['previous_hash'],
-                hash=data['hash'],
-                miner=data['miner']
-            )
-            n.save()
-            return n
+def find_block(hash):
+    for miner in MINERS:
+        if IP == miner:
+            continue
+        try:
+            r = requests.get('http://{m}:8000/blocks/{h}'.format(m=miner, h=hash))
+            if r.status_code == 200:
+                return r.json()[0]
+        except:
+            pass
+    return None
 
 
-def create_newblock(block_data):
-    print block_data
+def create_block_from_hash(hash):
     try:
-        block = Block.objects.get(hash=block_data['previous_hash'])
+        Block.objects.get(hash=hash)
+        return True
     except:
-        return
-        # TODO: check if not exists
-        # previous_newblock = find_previous_block(newblock)
-        # check_newblock(previous_newblock)
+        data = find_block(hash)
+        if not validate_block(data):
+            return False
+        if not create_block_from_hash(data['previous_hash']):
+            return False
+        create_block(data)
+        return True
 
-    # TODO: make sign check
-    # TODO: create transactions
 
-
+def create_block(block_data):
     block = Block(
         index=block_data['index'],
         payload=block_data['payload'],
@@ -58,24 +57,50 @@ def create_newblock(block_data):
 
     for transaction_data in block_data['transactions']:
         transaction = Transaction(
+            block=block,
             timestamp=transaction_data['timestamp'],
             sender=transaction_data['sender'],
             receiver=transaction_data['receiver'],
-            amount=transaction_data['amount']
+            amount=transaction_data['amount'],
+            hash=transaction_data['hash'],
+            sign=transaction_data['sign'],
         )
         transaction.save()
+    return True
 
 
-def check_newblock(block_data):
-    try:
-        Block.objects.get(hash=block_data['hash'])
-    except:
-        create_newblock(block_data)
-        return
+def validate_block(data):
+    sha = hasher.sha256()
+    sha.update(str(data['index']) +
+               str(data['timestamp']) +
+               str(data['payload']) +
+               str(data['previous_hash']))
+    hash = sha.hexdigest()
+
+    if hash != data['hash']:
+        return False
+
+    PUB = PublicKey.load_pkcs1(
+        '''
+        -----BEGIN RSA PUBLIC KEY-----
+        {p}
+        -----END RSA PUBLIC KEY-----
+        '''.format(p='\n'.join([data['miner'][i:i + 64] for i in range(0, len(data['miner']), 64)]))
+    )
+
+    if not verify(hash, data['sign'].decode('hex'), PUB):
+        return False
+
+    # TODO: transaction verificaiton
+
+    return True
 
 
 def calc_current_coin(sender, current_block):
     coin = 0
+
+    if current_block.miner == sender:
+        coin += MINER_REWARD
 
     for i in current_block.transactions.all():
         if i.sender == sender:
@@ -96,8 +121,13 @@ def check_waitingtransaction():
 
 
 def broadcast_new_block(block):
-    for peer in MINERS:
-        requests.post(peer + 'consensus/', data=BlockSerializer(block).data)
+    for miner in MINERS:
+        if miner == IP:
+            continue
+        try:
+            requests.post('http://{m}:8000/consensus/'.format(m=miner), data=BlockSerializer(block).data)
+        except:
+            pass
 
 
 def mine(waitingtransactions):
@@ -106,8 +136,9 @@ def mine(waitingtransactions):
         index=current_block.index + 1,
         previous_hash=current_block.hash,
         payload='I Mine Like I Hash',
-        timestamp=datetime.now()
+        timestamp=time()
     )
+    block.mine()
     block.save()
 
     for i in waitingtransactions:
@@ -116,86 +147,10 @@ def mine(waitingtransactions):
             sender=i.sender,
             receiver=i.receiver,
             amount=i.amount,
-            block=block
+            block=block,
+            hash=i.hash,
+            sign=i.sign
         ).save()
         i.delete()
 
     broadcast_new_block(block)
-
-
-'''
-    last_block = Block.objects.all().order_by('-index')[0]
-    block = Block(
-        index=last_block.index + 1,
-        previous_hash=last_block.hash,
-    )
-
-    sha = hasher.sha256()
-
-    sha.update(str(block.index) +
-               str(block.timestamp) +
-               str(block.previous_hash)
-
-               )
-
-    block.hash = sha.hexdigest()
-
-    # TODO: add POA
-    block.sign = block.hash
-
-    Transaction(
-        sender='network',
-        receiver=ME,
-        amount=100
-    ).save()
-
-    consensus()
-
-
-
-
-
-def consensus():
-    block_counts = {}
-    m = 0
-    master = None
-    for i in MINERS:
-        block_counts[i] = int(requests.get(i+'block_count').text)
-        if m < block_counts[i]:
-            m = block_counts[i]
-            master = i
-
-    reinit_db(master, m)
-
-
-def mine(transactions):
-    last_block = Block.objects.all().order_by('-index')[0]
-    block = Block(
-        index=last_block.index + 1,
-        previous_hash=last_block.hash,
-    )
-
-    sha = hasher.sha256()
-
-    sha.update(str(block.index) +
-               str(block.timestamp) +
-               str(block.previous_hash)
-
-               )
-
-    block.hash = sha.hexdigest()
-
-    # TODO: add POA
-    block.sign = block.hash
-
-    Transaction(
-        sender='network',
-        receiver=ME,
-        amount=100
-    ).save()
-
-    consensus()
-
-
-
-'''

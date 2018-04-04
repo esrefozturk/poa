@@ -46,8 +46,8 @@ class WaitingTransactionHandler(CreateAPIView):
 
 class ConsensusHandler(APIView):
     def post(self, request, *args, **kwargs):
-        from utils import check_newblock
-        t = threading.Thread(target=check_newblock, args=(request.data,))
+        from utils import create_block_from_hash
+        t = threading.Thread(target=create_block_from_hash, args=(request.data['hash'],))
         t.start()
         return Response()
 

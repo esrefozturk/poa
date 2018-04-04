@@ -118,11 +118,11 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-MINERS = {
-    'http://51.136.49.105:8000/': 'block1',
-    'http://51.136.10.1:8000/': 'block2',
-
-}
+MINERS = open('miners.txt').read().strip().split('\n')
 
 PUB = ''.join(open('rsa.pub').read().split('\n')[1:4])
 PIR = ''.join(open('rsa.pri').read().split('\n')[1:4])
+
+MINER_REWARD = 100
+
+IP = open('ip.txt').read().strip()
