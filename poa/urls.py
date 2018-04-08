@@ -25,4 +25,5 @@ urlpatterns = [
     url(r'^transactions/(?P<hash>\w+)/', views.TransactionHandler.as_view()),
     url(r'^new_transaction/', views.WaitingTransactionHandler.as_view()),
     url(r'^consensus/', views.ConsensusHandler.as_view()),
+
 ]

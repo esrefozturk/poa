@@ -1,5 +1,6 @@
 import hashlib as hasher
 import sys
+from random import randint
 from time import time
 
 import requests
@@ -42,24 +43,23 @@ def main():
 
     sig = sign(hash, PRI, 'SHA-256').encode('hex')
 
-    for miner in MINERS:
-        try:
-            requests.post(
-                'http://{ip}:8000/new_transaction/'.format(
-                    ip=miner
-                ),
-                data={
-                    'timestamp': timestamp,
-                    'sender': PUB,
-                    'receiver': receiver,
-                    'amount': amount,
-                    'hash': hash,
-                    'sign': sig,
-                }
+    try:
+        requests.post(
+            'http://{ip}:8000/new_transaction/'.format(
+                ip=MINERS[randint(0, len(MINERS) - 1)]
+            ),
+            data={
+                'timestamp': timestamp,
+                'sender': PUB,
+                'receiver': receiver,
+                'amount': amount,
+                'hash': hash,
+                'sign': sig,
+            }
 
-            )
-        except:
-            pass
+        )
+    except:
+        pass
 
 
 if __name__ == '__main__':

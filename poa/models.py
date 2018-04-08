@@ -2,57 +2,49 @@ import hashlib as hasher
 import threading
 
 from django.db import models
-from rsa import sign, PrivateKey, verify, PublicKey
 
 from settings import PUB
 
 
 class Block(models.Model):
     index = models.IntegerField(default=0)
-    timestamp = models.FloatField()
+    timestamp = models.FloatField(default=0)
     payload = models.CharField(max_length=1024, default='')
     sign = models.CharField(max_length=2048, default='')
-    previous_hash = models.CharField(max_length=1024)
+    previous_hash = models.CharField(max_length=1024, default='')
     hash = models.CharField(max_length=1024, default='')
     miner = models.CharField(max_length=1024, default='')
 
     def __unicode__(self):
-        return '{i} {t} {h}'.format(
-            i=self.index,
-            t=self.timestamp,
-            h=self.hash
-        )
+        return self.hash
+
+    def set_miner(self):
+        self.miner = PUB
+
+    def set_hash(self):
+        from utils import hash_block
+        self.hash = hash_block(self)
+
+    def set_sign(self):
+        from utils import sign_block
+        self.sign = sign_block(self)
 
     def mine(self):
-        self.miner = PUB
-        sha = hasher.sha256()
-        sha.update(str(self.index) +
-                   str(self.timestamp) +
-                   str(self.payload) +
-                   str(self.previous_hash))
-        self.hash = sha.hexdigest()
-
-        with open('rsa.pri', 'r') as f:
-            privatekey = PrivateKey.load_pkcs1(f.read())
-
-        self.sign = sign(self.hash, privatekey, 'SHA-256').encode('hex')
+        self.set_miner()
+        self.set_hash()
+        self.set_sign()
 
 
 class BaseTransaction(models.Model):
-    timestamp = models.FloatField()
-    sender = models.CharField(max_length=1024)
-    receiver = models.CharField(max_length=1024)
-    amount = models.PositiveIntegerField()
-    hash = models.CharField(max_length=1024)
-    sign = models.CharField(max_length=1024)
+    timestamp = models.FloatField(default=0)
+    sender = models.CharField(max_length=1024, default='')
+    receiver = models.CharField(max_length=1024, default='')
+    amount = models.PositiveIntegerField(default=0)
+    hash = models.CharField(max_length=1024, default='')
+    sign = models.CharField(max_length=1024, default='')
 
     def __unicode__(self):
-        return '{s} {r} {a}'.format(
-            s=self.sender,
-            r=self.receiver,
-            a=self.amount
-
-        )
+        return self.hash
 
 
 class Transaction(BaseTransaction):
@@ -60,36 +52,42 @@ class Transaction(BaseTransaction):
 
 
 class WaitingTransaction(BaseTransaction):
-    pass
+    def check_waitintransaction_exist(self):
+        try:
+            WaitingTransaction.objects.get(hash=self.hash)
+            return False
+        except:
+            return True
+
+    def check_transaction_exist(self):
+        try:
+            Transaction.objects.get(hash=self.hash)
+            return False
+        except:
+            return True
 
     def validate(self):
+
         from utils import calc_current_coin
 
-        sha = hasher.sha256()
-        sha.update(
-            str(self.sender) +
-            str(self.receiver) +
-            str(self.amount) +
-            str(self.timestamp)
-        )
-        hash = sha.hexdigest()
+        if not self.check_waitintransaction_exist():
+            return False
+
+        if not self.check_transaction_exist():
+            return False
+
+
+        from utils import hash_transaction
+        hash = hash_transaction(self)
 
         if self.hash != hash:
             return False
 
-        PUB = PublicKey.load_pkcs1(
-            '''
-            -----BEGIN RSA PUBLIC KEY-----
-            {p}
-            -----END RSA PUBLIC KEY-----
-            '''.format(p='\n'.join([self.sender[i:i + 64] for i in range(0, len(self.sender), 64)]))
-        )
-
-        if not verify(hash, self.sign.decode('hex'), PUB):
+        from utils import verify_transaction
+        if not verify_transaction(self):
             return False
 
-        current_block = Block.objects.all().order_by('-index')[0]
-        coin = calc_current_coin(self.sender, current_block)
+        coin = calc_current_coin(self.sender)
 
         if self.amount > coin:
             return False
@@ -102,9 +100,9 @@ class WaitingTransaction(BaseTransaction):
 
         super(WaitingTransaction, self).save(**kwargs)
 
-        from utils import check_waitingtransaction
+        from utils import transaction_arrived
 
-        t = threading.Thread(target=check_waitingtransaction)
+        t = threading.Thread(target=transaction_arrived, args=(self,))
         t.start()
 
 
