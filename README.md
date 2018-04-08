@@ -100,10 +100,10 @@ In this project, I implemented a toy cryptocurrency blockchain from scratch. Her
 ```
   
 
-<h2>How to Initialize Wallet</h2>
+<h1>How to Initialize Wallet</h1>
 
 - Create new public address and key pairs : `python wallet.py create_new_wallet`
 
-<h2>How to Use Wallet</h2>
+<h1>How to Use Wallet</h1>
 
 - Send coin : `python wallet.py <public_key_of_receiver> <amount>`
