@@ -54,4 +54,4 @@ class ConsensusHandler(APIView):
 
 class BlockCountHandler(APIView):
     def get(self, request):
-        return Response(get_block_count())
+        return Response({'block_count': get_block_count()})
