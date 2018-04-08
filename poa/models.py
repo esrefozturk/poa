@@ -1,4 +1,3 @@
-import hashlib as hasher
 import threading
 
 from django.db import models
@@ -16,7 +15,10 @@ class Block(models.Model):
     miner = models.CharField(max_length=1024, default='')
 
     def __unicode__(self):
-        return self.hash
+        return '{i} {h}'.format(
+            i=self.index,
+            h=self.hash
+        )
 
     def set_miner(self):
         self.miner = PUB
@@ -75,7 +77,6 @@ class WaitingTransaction(BaseTransaction):
 
         if not self.check_transaction_exist():
             return False
-
 
         from utils import hash_transaction
         hash = hash_transaction(self)

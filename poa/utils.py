@@ -7,9 +7,8 @@ from rsa import verify, PublicKey, PrivateKey, sign
 
 from poa.models import Block, Transaction, WaitingTransaction
 from serializers import BlockSerializer, WaitingTransactionSerializer
+from settings import LIMIT
 from settings import MINERS
-
-LIMIT = 1
 from settings import MINER_REWARD, IP
 
 
@@ -49,7 +48,7 @@ def verify_transaction(t):
 
 
 def get_newest_block():
-    return Block.objects.all().order_by('-index')[0]
+    return Block.objects.all().order_by('-index', 'timestamp')[0]
 
 
 def get_block_count():
@@ -83,6 +82,9 @@ def broadcast_new_block(block):
 
 def mine():
     waiting_transactions = WaitingTransaction.objects.all()[:LIMIT]
+
+    if waiting_transactions.count() == 0:
+        return
 
     newest_block = get_newest_block()
     block = Block(
@@ -225,7 +227,6 @@ def validate_block(data):
 
 
 def calc_current_coin_from_block(sender, block):
-
     coin = 0
 
     if block.miner == sender:
@@ -245,4 +246,10 @@ def calc_current_coin_from_block(sender, block):
 
 def calc_current_coin(sender):
     newest_block = get_newest_block()
-    return calc_current_coin_from_block(sender, newest_block)
+
+    coin = calc_current_coin_from_block(sender, newest_block)
+    for w in WaitingTransaction.objects.all():
+        if w.sender == sender:
+            coin -= w.amount
+
+    return coin

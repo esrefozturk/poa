@@ -126,3 +126,5 @@ PIR = ''.join(open('rsa.pri').read().split('\n')[1:4])
 MINER_REWARD = 100
 
 IP = open('ip.txt').read().strip()
+
+LIMIT = 10
