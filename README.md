@@ -1,12 +1,25 @@
 <h1>Proof of Authority Blockchain</h1>
 
+In this project, I implemented a toy cryptocurrency blockchain from scratch. Here is some details:
+
+- IP adresses of miner nodes are defined in [miners.txt](miners.txt) file.
+- Public keys(Addresses) of miners are defined in genesis block payload.
+- Blocks and transactions are signed with RSA public key digital signature scheme.
+- Account based transaction format is used.
+- REST API is used to interact with the nodes.
+
+
 <h2>Prerequisites</h2>
 
 - Python
-- Django
+  - RSA
+  - Django
+  - Django Rest Framework
+
 
 <h2>How to Start a Miner None</h2>
 
+- Put `*/10 * * * * cd <project path> && /usr/bin/python manage.py mine`
 - `python manage.py init`
 - `python manage.py runserver 0.0.0.0:8000`
 
@@ -18,7 +31,13 @@
 
 - Path : `/block_count/`
 
-- Response : <block_count>
+- Response :
+
+```
+{
+    "block_count": <block_count>
+}
+```
 
 <h3>Get Single Block Data</h3>
 
@@ -80,3 +99,11 @@
 }
 ```
   
+
+<h2>How to Initialize Wallet</h2>
+
+- Create new public address and key pairs : `python wallet.py create_new_wallet`
+
+<h2>How to Use Wallet</h2>
+
+- Send coin : `python wallet.py <public_key_of_receiver> <amount>`
