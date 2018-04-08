@@ -1,8 +1,8 @@
 <h1>Proof of Authority Blockchain</h1>
 
-In this project, I implemented a toy cryptocurrency blockchain from scratch. Here is some details:
+In this project, I implemented a toy cryptocurrency blockchain from scratch. Here are some details:
 
-- IP adresses of miner nodes are defined in [miners.txt](miners.txt) file.
+- IP addresses of miner nodes are defined in [miners.txt](miners.txt) file.
 - Public keys(Addresses) of miners are defined in genesis block payload.
 - Blocks and transactions are signed with RSA public key digital signature scheme.
 - Account based transaction format is used.
